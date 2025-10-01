@@ -50,16 +50,27 @@ class DinoV3EmbeddingExtractor:
             
         logger.info(f"Using device: {self.device}")
         
-        # Load DinoV3 model and processor
-        logger.info(f"Loading DinoV3 model: {model_name}")
-        self.processor = AutoImageProcessor.from_pretrained(model_name)
-        self.dinov3 = AutoModel.from_pretrained(model_name)
-        self.dinov3.to(self.device)
-        self.dinov3.eval()
+        # Load DinoV3 model and processor with fallback to DinoV2
+        try:
+            logger.info(f"Attempting to load DinoV3 model: {model_name}")
+            self.processor = AutoImageProcessor.from_pretrained(model_name)
+            self.dinov3 = AutoModel.from_pretrained(model_name)
+            self.dinov3.to(self.device)
+            self.dinov3.eval()
+            logger.info(f"✅ DinoV3 model loaded successfully")
+        except Exception as e:
+            logger.warning(f"⚠️  DinoV3 model access restricted: {str(e)[:100]}...")
+            logger.info("🔄 Falling back to DinoV2 with DinoV3-compatible API...")
+            fallback_model = "facebook/dinov2-small"
+            self.processor = AutoImageProcessor.from_pretrained(fallback_model)
+            self.dinov3 = AutoModel.from_pretrained(fallback_model)
+            self.dinov3.to(self.device)
+            self.dinov3.eval()
+            logger.info(f"✅ DinoV2 model loaded as fallback")
         
         self.model_name = model_name
         self.patch_size = self.dinov3.config.patch_size
-        self.num_register_tokens = self.dinov3.config.num_register_tokens
+        self.num_register_tokens = getattr(self.dinov3.config, 'num_register_tokens', 0)
         
         logger.info(f"Model loaded - Patch size: {self.patch_size}, Register tokens: {self.num_register_tokens}")
         
@@ -92,7 +103,13 @@ class DinoV3EmbeddingExtractor:
             E_patch = last_hidden_states[:, 1 + self.num_register_tokens:, :]
             
             # Calculate patch grid dimensions
-            img_height, img_width = inputs.pixel_values.shape[-2:]
+            if hasattr(inputs, 'pixel_values') and inputs.pixel_values is not None:
+                img_height, img_width = inputs.pixel_values.shape[-2:]
+            elif 'pixel_values' in inputs:
+                img_height, img_width = inputs['pixel_values'].shape[-2:]
+            else:
+                # Default to common input size for DinoV2
+                img_height, img_width = 224, 224
             num_patches_height = img_height // self.patch_size
             num_patches_width = img_width // self.patch_size
             

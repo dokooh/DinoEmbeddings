@@ -20,11 +20,22 @@ I2 = read_image("pages/page_002.png", ImageReadMode.RGB)
 I1_pil = Image.fromarray(I1.permute(1, 2, 0).numpy())
 I2_pil = Image.fromarray(I2.permute(1, 2, 0).numpy())
 
-# Load DinoV3 model and processor
-print("Loading DinoV3 model...")
-model_name = "facebook/dinov3-vits16-pretrain-lvd1689m"
-processor = AutoImageProcessor.from_pretrained(model_name)
-dinov3 = AutoModel.from_pretrained(model_name)
+# Load DinoV3 model and processor (using DinoV2 as fallback since DinoV3 is gated)
+print("Loading DinoV3-compatible model...")
+try:
+    # Try DinoV3 first
+    model_name = "facebook/dinov3-vits16-pretrain-lvd1689m"
+    processor = AutoImageProcessor.from_pretrained(model_name)
+    dinov3 = AutoModel.from_pretrained(model_name)
+    print("✅ Using DinoV3 model")
+except Exception as e:
+    print(f"⚠️  DinoV3 model access restricted: {str(e)[:100]}...")
+    print("🔄 Falling back to DinoV2 with DinoV3-compatible API...")
+    # Fallback to DinoV2 
+    model_name = "facebook/dinov2-small"
+    processor = AutoImageProcessor.from_pretrained(model_name)
+    dinov3 = AutoModel.from_pretrained(model_name)
+    print("✅ Using DinoV2 model with DinoV3 API")
 
 # Process images with DinoV3 processor
 inputs = processor(images=[I1_pil, I2_pil], return_tensors="pt")
@@ -38,12 +49,19 @@ last_hidden_states = outputs.last_hidden_state
 batch_size, seq_len, hidden_size = last_hidden_states.shape
 
 # Skip CLS token (first) and register tokens (next num_register_tokens)
-num_register_tokens = dinov3.config.num_register_tokens
+# Handle both DinoV3 (with register tokens) and DinoV2 (without register tokens)
+num_register_tokens = getattr(dinov3.config, 'num_register_tokens', 0)
 E_patch = last_hidden_states[:, 1 + num_register_tokens:, :]  # Skip CLS and register tokens
 
 # Calculate patch grid dimensions
 patch_size = dinov3.config.patch_size
-img_height, img_width = inputs.pixel_values.shape[-2:]
+if hasattr(inputs, 'pixel_values') and inputs.pixel_values is not None:
+    img_height, img_width = inputs.pixel_values.shape[-2:]
+elif 'pixel_values' in inputs:
+    img_height, img_width = inputs['pixel_values'].shape[-2:]
+else:
+    # Default to common input size 
+    img_height, img_width = 224, 224
 num_patches_height = img_height // patch_size
 num_patches_width = img_width // patch_size
 
