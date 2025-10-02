@@ -20,8 +20,10 @@ Dependencies:
 import os
 import sys
 import argparse
+import io  # Added missing import
 import fitz  # PyMuPDF
 import torch
+import numpy as np
 from PIL import Image
 from einops import rearrange
 from transformers import AutoImageProcessor, AutoModel
