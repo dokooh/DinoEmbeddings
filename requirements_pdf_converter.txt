@@ -1,0 +1,3 @@
+# Requirements for pdf_to_png.py
+PyMuPDF>=1.20.0
+Pillow>=9.0.0

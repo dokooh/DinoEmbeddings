@@ -27,15 +27,16 @@ from sklearn.preprocessing import minmax_scale
 import os
 import argparse
 
-def load_dinov2_model(model_size='base'):
+def load_dinov2_model(model_size='base', force_cpu=False):
     """
-    Load DINOv2 model from torch hub
+    Load DINOv2 model from torch hub with CUDA compatibility handling
     
     Args:
         model_size: 'small', 'base', 'large', or 'giant'
+        force_cpu: Force CPU usage even if CUDA is available
     
     Returns:
-        DINOv2 model
+        DINOv2 model, device
     """
     model_names = {
         'small': 'dinov2_vits14',
@@ -48,14 +49,93 @@ def load_dinov2_model(model_size='base'):
         raise ValueError(f"Model size must be one of: {list(model_names.keys())}")
     
     print(f"Loading DINOv2 {model_size} model...")
-    model = torch.hub.load('facebookresearch/dinov2', model_names[model_size])
-    model.eval()
     
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = model.to(device)
-    print(f"Model loaded on device: {device}")
+    # Determine device with CUDA compatibility checks
+    device = select_device(force_cpu)
+    
+    try:
+        # Load model
+        model = torch.hub.load('facebookresearch/dinov2', model_names[model_size])
+        model.eval()
+        
+        # Try to move to device and test with a dummy tensor
+        model = model.to(device)
+        
+        # Test CUDA compatibility with a small dummy tensor
+        if device.type == 'cuda':
+            test_tensor = torch.randn(1, 3, 224, 224).to(device)
+            try:
+                with torch.no_grad():
+                    _ = model.forward_features(test_tensor)
+                print(f"✅ Model loaded successfully on device: {device}")
+            except RuntimeError as e:
+                if "CUDA error" in str(e) or "kernel image" in str(e):
+                    print(f"⚠️  CUDA compatibility issue detected: {str(e)[:100]}...")
+                    print("🔄 Falling back to CPU...")
+                    device = torch.device('cpu')
+                    model = model.to(device)
+                    print(f"✅ Model loaded on CPU device")
+                else:
+                    raise
+        else:
+            print(f"✅ Model loaded on device: {device}")
+            
+    except Exception as e:
+        print(f"❌ Error loading model: {str(e)}")
+        if device.type == 'cuda':
+            print("🔄 Trying CPU fallback...")
+            device = torch.device('cpu')
+            model = torch.hub.load('facebookresearch/dinov2', model_names[model_size])
+            model.eval()
+            model = model.to(device)
+            print(f"✅ Model loaded on CPU device")
+        else:
+            raise
     
     return model, device
+
+def select_device(force_cpu=False):
+    """
+    Select the best available device with compatibility checks
+    
+    Args:
+        force_cpu: Force CPU usage
+        
+    Returns:
+        torch.device: Selected device
+    """
+    if force_cpu:
+        return torch.device('cpu')
+    
+    if not torch.cuda.is_available():
+        print("CUDA not available, using CPU")
+        return torch.device('cpu')
+    
+    # Check CUDA device properties
+    try:
+        device_count = torch.cuda.device_count()
+        current_device = torch.cuda.current_device()
+        device_name = torch.cuda.get_device_name(current_device)
+        
+        print(f"CUDA devices available: {device_count}")
+        print(f"Current device: {current_device} ({device_name})")
+        
+        # Check compute capability
+        major, minor = torch.cuda.get_device_capability(current_device)
+        compute_capability = f"{major}.{minor}"
+        print(f"Compute capability: {compute_capability}")
+        
+        # Warn about potential compatibility issues
+        if major < 6:  # Very old GPUs
+            print(f"⚠️  Warning: Old GPU detected (compute capability {compute_capability})")
+            print("   Consider using --force_cpu if you encounter CUDA errors")
+        
+        return torch.device('cuda')
+        
+    except Exception as e:
+        print(f"⚠️  CUDA device check failed: {str(e)}")
+        print("Falling back to CPU")
+        return torch.device('cpu')
 
 def load_and_preprocess_images(image_paths, target_size=448):
     """
@@ -104,7 +184,7 @@ def load_and_preprocess_images(image_paths, target_size=448):
 
 def extract_patch_features(model, input_tensor, device):
     """
-    Extract patch features using DINOv2
+    Extract patch features using DINOv2 with error handling
     
     Args:
         model: DINOv2 model
@@ -116,20 +196,44 @@ def extract_patch_features(model, input_tensor, device):
     """
     print("Extracting features with DINOv2...")
     
-    input_tensor = input_tensor.to(device)
-    
-    with torch.no_grad():
-        result = model.forward_features(input_tensor)
-    
-    # Get normalized patch tokens (excluding CLS token)
-    patch_tokens = result['x_norm_patchtokens'].detach().cpu().numpy()
-    
-    # Reshape to [batch_size, num_patches, feature_dim]
-    batch_size, num_patches, feature_dim = patch_tokens.shape
-    patch_tokens = patch_tokens.reshape([batch_size, num_patches, -1])
-    
-    print(f"Extracted features shape: {patch_tokens.shape}")
-    return patch_tokens
+    try:
+        input_tensor = input_tensor.to(device)
+        
+        with torch.no_grad():
+            result = model.forward_features(input_tensor)
+        
+        # Get normalized patch tokens (excluding CLS token)
+        patch_tokens = result['x_norm_patchtokens'].detach().cpu().numpy()
+        
+        # Reshape to [batch_size, num_patches, feature_dim]
+        batch_size, num_patches, feature_dim = patch_tokens.shape
+        patch_tokens = patch_tokens.reshape([batch_size, num_patches, -1])
+        
+        print(f"Extracted features shape: {patch_tokens.shape}")
+        return patch_tokens
+        
+    except RuntimeError as e:
+        if "CUDA error" in str(e) or "kernel image" in str(e):
+            print(f"⚠️  CUDA error during feature extraction: {str(e)[:100]}...")
+            print("🔄 Moving model to CPU and retrying...")
+            
+            # Move model to CPU
+            model = model.cpu()
+            device = torch.device('cpu')
+            input_tensor = input_tensor.cpu()
+            
+            # Retry on CPU
+            with torch.no_grad():
+                result = model.forward_features(input_tensor)
+            
+            patch_tokens = result['x_norm_patchtokens'].detach().cpu().numpy()
+            batch_size, num_patches, feature_dim = patch_tokens.shape
+            patch_tokens = patch_tokens.reshape([batch_size, num_patches, -1])
+            
+            print(f"✅ Features extracted on CPU, shape: {patch_tokens.shape}")
+            return patch_tokens
+        else:
+            raise
 
 def perform_foreground_segmentation(patch_tokens, threshold=0.6):
     """
@@ -225,7 +329,7 @@ def analyze_foreground_objects(patch_tokens, masks):
 
 def test_on_new_image(model, device, fg_pca, object_pca, test_image_path, target_size=672):
     """
-    Test the trained PCA models on a new image
+    Test the trained PCA models on a new image with error handling
     
     Args:
         model: DINOv2 model
@@ -241,34 +345,39 @@ def test_on_new_image(model, device, fg_pca, object_pca, test_image_path, target
     """
     print(f"Testing on new image: {test_image_path}")
     
-    # Load and preprocess test image
-    test_images, test_tensor = load_and_preprocess_images([test_image_path], target_size)
-    test_image = test_images[0]
-    
-    # Extract features
-    test_patch_tokens = extract_patch_features(model, test_tensor, device)
-    test_patch_tokens = test_patch_tokens.reshape([-1, test_patch_tokens.shape[-1]])
-    
-    # Apply foreground segmentation
-    fg_result = fg_pca.transform(test_patch_tokens)
-    fg_result = minmax_scale(fg_result)
-    fg_mask = (fg_result > 0.5).ravel()
-    
-    print(f"Test image: {np.sum(fg_mask)}/{len(fg_mask)} patches marked as foreground")
-    
-    # Apply object analysis
-    object_result = object_pca.transform(test_patch_tokens)
-    object_result = minmax_scale(object_result)
-    
-    # Create visualization (only foreground objects)
-    only_object = np.zeros_like(object_result)
-    only_object[fg_mask, :] = object_result[fg_mask, :]
-    
-    # Reshape to spatial grid
-    patches_per_side = int(np.sqrt(len(test_patch_tokens)))
-    result_visualization = only_object.reshape([patches_per_side, patches_per_side, 3])
-    
-    return test_image, result_visualization
+    try:
+        # Load and preprocess test image
+        test_images, test_tensor = load_and_preprocess_images([test_image_path], target_size)
+        test_image = test_images[0]
+        
+        # Extract features with error handling
+        test_patch_tokens = extract_patch_features(model, test_tensor, device)
+        test_patch_tokens = test_patch_tokens.reshape([-1, test_patch_tokens.shape[-1]])
+        
+        # Apply foreground segmentation
+        fg_result = fg_pca.transform(test_patch_tokens)
+        fg_result = minmax_scale(fg_result)
+        fg_mask = (fg_result > 0.5).ravel()
+        
+        print(f"Test image: {np.sum(fg_mask)}/{len(fg_mask)} patches marked as foreground")
+        
+        # Apply object analysis
+        object_result = object_pca.transform(test_patch_tokens)
+        object_result = minmax_scale(object_result)
+        
+        # Create visualization (only foreground objects)
+        only_object = np.zeros_like(object_result)
+        only_object[fg_mask, :] = object_result[fg_mask, :]
+        
+        # Reshape to spatial grid
+        patches_per_side = int(np.sqrt(len(test_patch_tokens)))
+        result_visualization = only_object.reshape([patches_per_side, patches_per_side, 3])
+        
+        return test_image, result_visualization
+        
+    except Exception as e:
+        print(f"⚠️  Error during test image processing: {str(e)}")
+        raise
 
 def visualize_results(images, masks, image_norm_patches, color_patches_list, save_path=None):
     """
@@ -375,20 +484,30 @@ def main():
                         help='Target size for test image')
     parser.add_argument('--save_dir', type=str, default='segmentation_results',
                         help='Directory to save results')
+    parser.add_argument('--force_cpu', action='store_true',
+                        help='Force CPU usage even if CUDA is available')
+    parser.add_argument('--cuda_debug', action='store_true',
+                        help='Enable CUDA debugging environment variables')
     
     args = parser.parse_args()
+    
+    # Set CUDA debugging environment variables if requested
+    if args.cuda_debug:
+        os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+        os.environ['TORCH_USE_CUDA_DSA'] = '1'
+        print("🔧 CUDA debugging enabled")
     
     # Create save directory
     os.makedirs(args.save_dir, exist_ok=True)
     
     try:
-        # Load model
-        model, device = load_dinov2_model(args.model_size)
+        # Load model with CUDA compatibility handling
+        model, device = load_dinov2_model(args.model_size, force_cpu=args.force_cpu)
         
         # Load and preprocess training images
         images, input_tensor = load_and_preprocess_images(args.training_images, args.target_size)
         
-        # Extract features
+        # Extract features with error handling
         patch_tokens = extract_patch_features(model, input_tensor, device)
         
         # Perform foreground segmentation
@@ -411,11 +530,24 @@ def main():
             test_save_path = os.path.join(args.save_dir, 'test_result.png') 
             visualize_test_result(test_image, result_visualization, test_save_path)
         
-        print("\nSegmentation pipeline completed successfully!")
-        print(f"Results saved in: {args.save_dir}")
+        print("\n✅ Segmentation pipeline completed successfully!")
+        print(f"📁 Results saved in: {args.save_dir}")
+        
+        if device.type == 'cpu':
+            print("\n💡 Tip: If you have a compatible CUDA GPU, you might get better performance")
+            print("   Run again without --force_cpu to try GPU acceleration")
         
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"❌ Error: {str(e)}")
+        
+        # Provide helpful error messages
+        if "CUDA" in str(e):
+            print("\n🔧 CUDA Troubleshooting:")
+            print("   1. Try running with --force_cpu flag")
+            print("   2. Update PyTorch to match your CUDA version")
+            print("   3. Check GPU compute capability compatibility")
+            print("   4. Use --cuda_debug flag for more detailed error info")
+        
         return 1
     
     return 0
