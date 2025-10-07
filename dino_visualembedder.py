@@ -236,8 +236,96 @@ class PDFVisualEmbedder:
         if save_path:
             plt.savefig(save_path, dpi=150, bbox_inches='tight')
             print(f"Visualization saved to {save_path}")
+            plt.close()
+        else:
+            plt.show()
+    
+    def save_region_images(self, image: Image.Image, regions: List[Dict], 
+                          output_dir: str, page_num: int, 
+                          save_with_bbox: bool = True):
+        """
+        Save individual region images with optional bounding boxes
         
-        plt.show()
+        Args:
+            image: PIL Image of the page
+            regions: List of region dictionaries
+            output_dir: Directory to save region images
+            page_num: Page number for filename
+            save_with_bbox: If True, save images with bounding boxes drawn
+        """
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        
+        colors_rgb = {
+            'section': (0, 0, 255),  # Blue
+            'table': (255, 0, 0),     # Red
+            'default': (0, 255, 0)    # Green
+        }
+        
+        for region in regions:
+            x1, y1, x2, y2 = region['bbox']
+            region_type = region['type']
+            region_name = region['name']
+            
+            # Crop the region
+            region_img = image.crop((x1, y1, x2, y2))
+            
+            # Save cropped region without bbox
+            filename_base = f"page{page_num:03d}_{region_type}_{region_name}"
+            crop_path = output_path / f"{filename_base}_crop.png"
+            region_img.save(crop_path)
+            
+            # Save with bounding box if requested
+            if save_with_bbox:
+                # Create a copy of the cropped image to draw on
+                import PIL.ImageDraw as ImageDraw
+                import PIL.ImageFont as ImageFont
+                
+                bbox_img = region_img.copy()
+                draw = ImageDraw.Draw(bbox_img)
+                
+                # Draw border
+                color = colors_rgb.get(region_type, colors_rgb['default'])
+                border_width = max(2, min(bbox_img.width, bbox_img.height) // 100)
+                
+                # Draw rectangle border
+                for i in range(border_width):
+                    draw.rectangle(
+                        [i, i, bbox_img.width - 1 - i, bbox_img.height - 1 - i],
+                        outline=color,
+                        width=1
+                    )
+                
+                # Add label
+                try:
+                    # Try to use a nicer font if available
+                    font_size = max(12, min(bbox_img.width, bbox_img.height) // 20)
+                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+                except:
+                    # Fallback to default font
+                    font = ImageFont.load_default()
+                
+                label = f"{region_type}: {region_name}"
+                
+                # Get text bounding box
+                bbox = draw.textbbox((0, 0), label, font=font)
+                text_width = bbox[2] - bbox[0]
+                text_height = bbox[3] - bbox[1]
+                
+                # Draw background for text
+                padding = 5
+                draw.rectangle(
+                    [padding, padding, text_width + 2*padding, text_height + 2*padding],
+                    fill=(255, 255, 255, 200)
+                )
+                
+                # Draw text
+                draw.text((padding, padding), label, fill=color, font=font)
+                
+                bbox_path = output_path / f"{filename_base}_bbox.png"
+                bbox_img.save(bbox_path)
+        
+        print(f"  Saved {len(regions)} region images to {output_dir}/")
     
     def save_embeddings(self, results: Dict, output_path: str):
         """
