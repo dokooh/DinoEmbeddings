@@ -642,90 +642,89 @@ Grid: {grid_size}×{grid_size}"""
         except Exception as e:
             self.logger.warning(f"⚠️ Failed to save visual embeddings for debugging: {str(e)}")
     
-    # COMMENTED OUT - OPENCV EXTEND BBOX TO WHITE METHOD (disabled)
-    # def extend_bbox_to_white(self, image, bbox, white_threshold=240, max_extension=500):
-    #     """
-    #     Extend a bounding box until all four edges reach white areas using OpenCV approach.
-    #     
-    #     Parameters:
-    #     -----------
-    #     image : numpy.ndarray
-    #         Input image (grayscale or color)
-    #     bbox : tuple
-    #         Initial bounding box as (x, y, width, height) in pixel coordinates
-    #     white_threshold : int
-    #         Pixel intensity threshold to consider as white (0-255)
-    #     max_extension : int
-    #         Maximum pixels to extend in any direction (safety limit)
-    #     
-    #     Returns:
-    #     --------
-    #     tuple : Extended bounding box as (x, y, width, height) in pixel coordinates
-    #     """
-    #     import cv2
-    #     
-    #     # Convert to grayscale if needed
-    #     if len(image.shape) == 3:
-    #         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    #     else:
-    #         gray = image.copy()
-    #     
-    #     h, w = gray.shape
-    #     x, y, bw, bh = bbox
-    #     
-    #     # Ensure bbox is within image bounds
-    #     x = max(0, min(x, w - 1))
-    #     y = max(0, min(y, h - 1))
-    #     bw = min(bw, w - x)
-    #     bh = min(bh, h - y)
-    #     
-    #     # Track original position for safety check
-    #     orig_x, orig_y = x, y
-    #     orig_right, orig_bottom = x + bw, y + bh
-    #     
-    #     # Extend left edge
-    #     extended = 0
-    #     while x > 0 and extended < max_extension:
-    #         # Check if the entire left edge has reached white
-    #         left_edge = gray[y:y+bh, x-1]
-    #         if np.all(left_edge >= white_threshold):
-    #             break
-    #         x -= 1
-    #         bw += 1
-    #         extended += 1
-    #     
-    #     # Extend right edge
-    #     extended = 0
-    #     while (x + bw) < w and extended < max_extension:
-    #         # Check if the entire right edge has reached white
-    #         right_edge = gray[y:y+bh, x+bw]
-    #         if np.all(right_edge >= white_threshold):
-    #             break
-    #         bw += 1
-    #         extended += 1
-    #     
-    #     # Extend top edge
-    #     extended = 0
-    #     while y > 0 and extended < max_extension:
-    #         # Check if the entire top edge has reached white
-    #         top_edge = gray[y-1, x:x+bw]
-    #         if np.all(top_edge >= white_threshold):
-    #             break
-    #         y -= 1
-    #         bh += 1
-    #         extended += 1
-    #     
-    #     # Extend bottom edge
-    #     extended = 0
-    #     while (y + bh) < h and extended < max_extension:
-    #         # Check if the entire bottom edge has reached white
-    #         bottom_edge = gray[y+bh, x:x+bw]
-    #         if np.all(bottom_edge >= white_threshold):
-    #             break
-    #         bh += 1
-    #         extended += 1
-    #     
-    #     return (x, y, bw, bh)
+    def extend_bbox_to_white(self, image, bbox, white_threshold=240, max_extension=500):
+        """
+        Extend a bounding box until all four edges reach white areas using OpenCV approach.
+        
+        Parameters:
+        -----------
+        image : numpy.ndarray
+            Input image (grayscale or color)
+        bbox : tuple
+            Initial bounding box as (x, y, width, height) in pixel coordinates
+        white_threshold : int
+            Pixel intensity threshold to consider as white (0-255)
+        max_extension : int
+            Maximum pixels to extend in any direction (safety limit)
+        
+        Returns:
+        --------
+        tuple : Extended bounding box as (x, y, width, height) in pixel coordinates
+        """
+        import cv2
+        
+        # Convert to grayscale if needed
+        if len(image.shape) == 3:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = image.copy()
+        
+        h, w = gray.shape
+        x, y, bw, bh = bbox
+        
+        # Ensure bbox is within image bounds
+        x = max(0, min(x, w - 1))
+        y = max(0, min(y, h - 1))
+        bw = min(bw, w - x)
+        bh = min(bh, h - y)
+        
+        # Track original position for safety check
+        orig_x, orig_y = x, y
+        orig_right, orig_bottom = x + bw, y + bh
+        
+        # Extend left edge
+        extended = 0
+        while x > 0 and extended < max_extension:
+            # Check if the entire left edge has reached white
+            left_edge = gray[y:y+bh, x-1]
+            if np.all(left_edge >= white_threshold):
+                break
+            x -= 1
+            bw += 1
+            extended += 1
+        
+        # Extend right edge
+        extended = 0
+        while (x + bw) < w and extended < max_extension:
+            # Check if the entire right edge has reached white
+            right_edge = gray[y:y+bh, x+bw]
+            if np.all(right_edge >= white_threshold):
+                break
+            bw += 1
+            extended += 1
+        
+        # Extend top edge
+        extended = 0
+        while y > 0 and extended < max_extension:
+            # Check if the entire top edge has reached white
+            top_edge = gray[y-1, x:x+bw]
+            if np.all(top_edge >= white_threshold):
+                break
+            y -= 1
+            bh += 1
+            extended += 1
+        
+        # Extend bottom edge
+        extended = 0
+        while (y + bh) < h and extended < max_extension:
+            # Check if the entire bottom edge has reached white
+            bottom_edge = gray[y+bh, x:x+bw]
+            if np.all(bottom_edge >= white_threshold):
+                break
+            bh += 1
+            extended += 1
+        
+        return (x, y, bw, bh)
 
     # COMMENTED OUT - BOTTOM BORDER OPTIMIZATION (reverted to previous strategy)
     # def optimize_bottom_border(self, image, bbox, white_threshold=240, max_extension=500, 
@@ -881,474 +880,374 @@ Grid: {grid_size}×{grid_size}"""
     #     return (x, y, bw, bh)
 
     def align_bbox_with_white_background(self, image_path: str, original_bbox: List[float], 
-                                       other_bboxes: List[List[float]] = None, 
-                                       alignment_method: str = 'opencv') -> Dict[str, Any]:
+                                       other_bboxes: List[List[float]] = None) -> Dict[str, Any]:
         """
-        Align bbox with white background using either Dino-based or OpenCV-based approach.
+        Simple bbox alignment using OpenCV-based white background detection.
         
         Args:
             image_path: Path to the image file
             original_bbox: Original bbox [x1, y1, x2, y2] in normalized coordinates
-            other_bboxes: List of other bounding boxes to avoid overlapping
-            alignment_method: 'dino' for DinoV2/V3 embeddings or 'opencv' for pixel-based approach
+            other_bboxes: List of other bounding boxes to avoid overlapping (not used in this version)
             
         Returns:
             Dictionary containing aligned bbox and validation metrics
         """
         try:
+            import cv2
+            
             if other_bboxes is None:
                 other_bboxes = []
             
-            if alignment_method == 'opencv':
-                return self._align_with_opencv_approach(image_path, original_bbox, other_bboxes)
-            elif alignment_method == 'dino':
-                return self._align_with_dino_approach(image_path, original_bbox, other_bboxes)
-            else:
-                self.logger.error(f"❌ Unknown alignment method: {alignment_method}")
-                return {
-                    'aligned_bbox': original_bbox,
-                    'best_strategy': 'fallback',
-                    'error': f'Unknown alignment method: {alignment_method}'
-                }
-                
-        except Exception as e:
-            self.logger.error(f"❌ Error in bbox alignment: {str(e)}")
-            return {
-                'aligned_bbox': original_bbox,
-                'best_strategy': 'fallback',
-                'error': str(e)
-            }
-
-    # COMMENTED OUT - OPENCV ALIGNMENT METHOD (disabled)
-    # def _align_with_opencv_approach(self, image_path: str, original_bbox: List[float], 
-    #                                other_bboxes: List[List[float]]) -> Dict[str, Any]:
-    #     """
-    #     Simple bbox alignment using OpenCV-based white background detection.
-    #     """
-    #     try:
-    #         import cv2
-    #         
-    #         self.logger.info(f"🎯 Starting OpenCV-based bbox alignment with white background detection")
-    #         
-    #         # Load image
-    #         image = cv2.imread(image_path)
-    #         if image is None:
-    #             # Try with PIL if cv2 fails
-    #             pil_image = Image.open(image_path).convert('RGB')
-    #             image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
-    #         
-    #         img_height, img_width = image.shape[:2]
-    #         
-    #         # Convert normalized bbox to pixel coordinates  
-    #         x1, y1, x2, y2 = original_bbox
-    #         px1 = int(x1 * img_width)
-    #         py1 = int(y1 * img_height)
-    #         px2 = int(x2 * img_width)
-    #         py2 = int(y2 * img_height)
-    #         
-    #         # Convert to (x, y, width, height) format for OpenCV approach
-    #         bbox_xywh = (px1, py1, px2 - px1, py2 - py1)
-    #         
-    #         # Apply OpenCV-based white background extension
-    #         extended_bbox_xywh = self.extend_bbox_to_white(
-    #             image, bbox_xywh, white_threshold=240, max_extension=500
-    #         )
-    #         
-    #         # Convert back to normalized (x1, y1, x2, y2) format
-    #         ex, ey, ew, eh = extended_bbox_xywh
-    #         extended_bbox = [
-    #             ex / img_width,           # x1
-    #             ey / img_height,          # y1  
-    #             (ex + ew) / img_width,    # x2
-    #             (ey + eh) / img_height    # y2
-    #         ]
-    #         
-    #         # Calculate extension metrics for logging
-    #         original_area = (px2 - px1) * (py2 - py1)
-    #         extended_area = ew * eh
-    #         extension_ratio = extended_area / original_area if original_area > 0 else 1.0
-    #         
-    #         self.logger.info(f"✅ OpenCV alignment complete:")
-    #         self.logger.info(f"   Original bbox: [{x1:.3f}, {y1:.3f}, {x2:.3f}, {y2:.3f}]")
-    #         self.logger.info(f"   Extended bbox: [{extended_bbox[0]:.3f}, {extended_bbox[1]:.3f}, {extended_bbox[2]:.3f}, {extended_bbox[3]:.3f}]")
-    #         self.logger.info(f"   Extension ratio: {extension_ratio:.2f}x")
-    #         
-    #         # Simple validation metrics
-    #         validation_metrics = {
-    #             'opencv': {
-    #                 'white_coverage': 0.8,  # Placeholder - OpenCV method inherently finds white areas
-    #                 'boundary_sharpness': 0.9,  # OpenCV method stops at sharp boundaries
-    #                 'size_stability': min(2.0, extension_ratio) / 2.0,  # Penalize excessive expansion
-    #                 'overall_score': 0.85  # Good baseline score for OpenCV approach
-    #             }
-    #         }
-    #         
-    #         return {
-    #             'aligned_bbox': extended_bbox,
-    #             'best_strategy': 'opencv',
-    #             'all_strategies': {'opencv': extended_bbox},
-    #             'validation_metrics': validation_metrics,
-    #             'original_bbox': original_bbox,
-    #             'extension_ratio': extension_ratio
-    #         }
-    #         
-    #     except Exception as e:
-    #         self.logger.error(f"❌ Error in OpenCV bbox alignment: {str(e)}")
-    #         return {
-    #             'aligned_bbox': original_bbox,
-    #             'best_strategy': 'fallback',
-    #             'error': str(e)
-    #         }
-
-    def _align_with_dino_approach(self, image_path: str, original_bbox: List[float], 
-                                 other_bboxes: List[List[float]]) -> Dict[str, Any]:
-        """
-        Advanced bbox alignment using DinoV2/V3 embeddings with multiple strategies.
-        """
-        try:
-            self.logger.info(f"🧠 Starting DinoV2/V3-based bbox alignment with multiple strategies")
+            self.logger.info(f"🎯 Starting OpenCV-based bbox alignment with white background detection")
             
-            # Strategy 1: Gradient analysis
-            gradient_bbox = self._align_with_gradient_analysis(image_path, original_bbox, other_bboxes)
+            # Load image
+            image = cv2.imread(image_path)
+            if image is None:
+                # Try with PIL if cv2 fails
+                pil_image = Image.open(image_path).convert('RGB')
+                image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
             
-            # Strategy 2: Multi-scale embeddings
-            multiscale_bbox = self._align_with_multiscale_embeddings(image_path, original_bbox, other_bboxes)
+            img_height, img_width = image.shape[:2]
             
-            # Strategy 3: Contour detection
-            contour_bbox = self._align_with_contour_detection(image_path, original_bbox, other_bboxes)
+            # Convert normalized bbox to pixel coordinates  
+            x1, y1, x2, y2 = original_bbox
+            px1 = int(x1 * img_width)
+            py1 = int(y1 * img_height)
+            px2 = int(x2 * img_width)
+            py2 = int(y2 * img_height)
             
-            # Strategy 4: Adaptive thresholding
-            adaptive_bbox = self._align_with_adaptive_thresholding(image_path, original_bbox, other_bboxes)
+            # Convert to (x, y, width, height) format for OpenCV approach
+            bbox_xywh = (px1, py1, px2 - px1, py2 - py1)
             
-            # Strategy 5: Consensus alignment
-            consensus_bbox = self._compute_consensus_alignment(
-                original_bbox, gradient_bbox, multiscale_bbox, contour_bbox, adaptive_bbox
+            # Apply OpenCV-based white background extension
+            extended_bbox_xywh = self.extend_bbox_to_white(
+                image, bbox_xywh, white_threshold=240, max_extension=500
             )
             
-            # Store all strategy results
-            strategy_results = {
-                'gradient': gradient_bbox,
-                'multiscale': multiscale_bbox,
-                'contour': contour_bbox,
-                'adaptive': adaptive_bbox,
-                'consensus': consensus_bbox
-            }
+            # COMMENTED OUT - Bottom border optimization (reverted to previous strategy)
+            # optimized_bbox_xywh = self.optimize_bottom_border(
+            #     image, extended_bbox_xywh, white_threshold=240, max_extension=300,
+            #     tolerance_ratio=0.15, sample_width=60
+            # )
             
-            # Validate all strategies
-            validation_results = self._validate_alignment_strategies(
-                image_path, original_bbox, strategy_results
-            )
+            # Convert back to normalized (x1, y1, x2, y2) format
+            ex, ey, ew, eh = extended_bbox_xywh
+            extended_bbox = [
+                ex / img_width,           # x1
+                ey / img_height,          # y1  
+                (ex + ew) / img_width,    # x2
+                (ey + eh) / img_height    # y2
+            ]
             
-            # Select best strategy
-            best_strategy_name, best_strategy_key = self._select_best_alignment(validation_results)
+            # Calculate extension metrics for logging
+            original_area = (px2 - px1) * (py2 - py1)
+            extended_area = ew * eh
+            extension_ratio = extended_area / original_area if original_area > 0 else 1.0
             
-            # Get the best aligned bbox
-            if best_strategy_name == 'fallback':
-                aligned_bbox = original_bbox
-            else:
-                aligned_bbox = strategy_results[best_strategy_key]
-            
-            # Calculate extension ratio
-            original_area = (original_bbox[2] - original_bbox[0]) * (original_bbox[3] - original_bbox[1])
-            aligned_area = (aligned_bbox[2] - aligned_bbox[0]) * (aligned_bbox[3] - aligned_bbox[1])
-            extension_ratio = aligned_area / original_area if original_area > 0 else 1.0
-            
-            self.logger.info(f"✅ DinoV2/V3 alignment complete:")
-            self.logger.info(f"   Original bbox: {original_bbox}")
-            self.logger.info(f"   Extended bbox: {aligned_bbox}")
+            self.logger.info(f"� OpenCV alignment complete:")
+            self.logger.info(f"   Original bbox: [{x1:.3f}, {y1:.3f}, {x2:.3f}, {y2:.3f}]")
+            self.logger.info(f"   Extended bbox: [{extended_bbox[0]:.3f}, {extended_bbox[1]:.3f}, {extended_bbox[2]:.3f}, {extended_bbox[3]:.3f}]")
             self.logger.info(f"   Extension ratio: {extension_ratio:.2f}x")
-            self.logger.info(f"   Best strategy: {best_strategy_name}")
+            
+            # Simple validation metrics
+            validation_metrics = {
+                'opencv': {
+                    'white_coverage': 0.8,  # Placeholder - OpenCV method inherently finds white areas
+                    'boundary_sharpness': 0.9,  # OpenCV method stops at sharp boundaries
+                    'size_stability': min(2.0, extension_ratio) / 2.0,  # Penalize excessive expansion
+                    'overall_score': 0.85  # Good baseline score for OpenCV approach
+                }
+            }
             
             return {
-                'aligned_bbox': aligned_bbox,
-                'best_strategy': best_strategy_name,
-                'all_strategies': strategy_results,
-                'validation_metrics': validation_results,
+                'aligned_bbox': extended_bbox,
+                'best_strategy': 'opencv',
+                'all_strategies': {'opencv': extended_bbox},
+                'validation_metrics': validation_metrics,
                 'original_bbox': original_bbox,
                 'extension_ratio': extension_ratio
             }
             
         except Exception as e:
-            self.logger.error(f"❌ Error in DinoV2/V3 bbox alignment: {str(e)}")
+            self.logger.error(f"❌ Error in OpenCV bbox alignment: {str(e)}")
             return {
                 'aligned_bbox': original_bbox,
                 'best_strategy': 'fallback',
                 'error': str(e)
             }
     
-    # DINO-BASED ALIGNMENT STRATEGIES (uncommented for dino alignment method)
-    def _align_with_gradient_analysis(self, image_path: str, bbox: List[float], 
-                                    other_bboxes: List[List[float]]) -> List[float]:
-        """
-        Strategy 1: Use gradient analysis to find precise white background boundaries.
-        """
-        try:
-            from scipy import ndimage
-            import cv2
-            
-            # Load and process image
-            image = Image.open(image_path).convert('RGB')
-            img_array = np.array(image)
-            img_width, img_height = image.size
+    # COMMENTED OUT - OLD ALIGNMENT STRATEGIES (replaced with OpenCV approach)
+    # def _align_with_gradient_analysis(self, image_path: str, bbox: List[float], 
+    #                                 other_bboxes: List[List[float]]) -> List[float]:
+    #     """
+    #     Strategy 1: Use gradient analysis to find precise white background boundaries.
+    #     """
+    #     try:
+    #         from scipy import ndimage
+    #         import cv2
+    #         
+    #         # Load and process image
+    #         image = Image.open(image_path).convert('RGB')
+    #         img_array = np.array(image)
+    #         img_width, img_height = image.size
     #         
     #         # Convert bbox to pixel coordinates with padding for analysis
-            # Convert bbox to pixel coordinates with padding for analysis
-            x1, y1, x2, y2 = bbox
-            padding = 50  # Pixels to extend search area
-            
-            px1 = max(0, int(x1 * img_width) - padding)
-            py1 = max(0, int(y1 * img_height) - padding)
-            px2 = min(img_width, int(x2 * img_width) + padding)
-            py2 = min(img_height, int(y2 * img_height) + padding)
-            
-            # Extract extended region for analysis
-            analysis_region = img_array[py1:py2, px1:px2]
-            
-            # Convert to grayscale for gradient analysis
-            gray_region = cv2.cvtColor(analysis_region, cv2.COLOR_RGB2GRAY)
-            
-            # Compute gradients
-            grad_x = ndimage.sobel(gray_region, axis=1)
-            grad_y = ndimage.sobel(gray_region, axis=0)
-            gradient_magnitude = np.sqrt(grad_x**2 + grad_y**2)
-            
-            # Find white regions (high brightness, low gradient)
-            brightness_mask = gray_region > 200  # White threshold
-            low_gradient_mask = gradient_magnitude < 30  # Low gradient threshold
-            white_background_mask = brightness_mask & low_gradient_mask
-            
-            # Find optimal boundaries by searching for consistent white regions
-            original_rel_x1 = (int(x1 * img_width) - px1) / (px2 - px1)
-            original_rel_y1 = (int(y1 * img_height) - py1) / (py2 - py1)
-            original_rel_x2 = (int(x2 * img_width) - px1) / (px2 - px1)
-            original_rel_y2 = (int(y2 * img_height) - py1) / (py2 - py1)
-            
-            # Extend boundaries to white regions
-            aligned_bbox = self._extend_to_white_boundaries(
-                white_background_mask, 
-                [original_rel_x1, original_rel_y1, original_rel_x2, original_rel_y2],
-                (px1, py1, px2, py2), 
-                (img_width, img_height)
-            )
-            
-            self.logger.info(f"🔍 Gradient analysis alignment: {aligned_bbox}")
-            return aligned_bbox
-            
-        except Exception as e:
-            self.logger.warning(f"⚠️ Gradient analysis failed: {str(e)}")
-            return bbox
+    #         x1, y1, x2, y2 = bbox
+    #         padding = 50  # Pixels to extend search area
+    #         
+    #         px1 = max(0, int(x1 * img_width) - padding)
+    #         py1 = max(0, int(y1 * img_height) - padding)
+    #         px2 = min(img_width, int(x2 * img_width) + padding)
+    #         py2 = min(img_height, int(y2 * img_height) + padding)
+    #         
+    #         # Extract extended region for analysis
+    #         analysis_region = img_array[py1:py2, px1:px2]
+    #         
+    #         # Convert to grayscale for gradient analysis
+    #         gray_region = cv2.cvtColor(analysis_region, cv2.COLOR_RGB2GRAY)
+    #         
+    #         # Compute gradients
+    #         grad_x = ndimage.sobel(gray_region, axis=1)
+    #         grad_y = ndimage.sobel(gray_region, axis=0)
+    #         gradient_magnitude = np.sqrt(grad_x**2 + grad_y**2)
+    #         
+    #         # Find white regions (high brightness, low gradient)
+    #         brightness_mask = gray_region > 200  # White threshold
+    #         low_gradient_mask = gradient_magnitude < 30  # Low gradient threshold
+    #         white_background_mask = brightness_mask & low_gradient_mask
+    #         
+    #         # Find optimal boundaries by searching for consistent white regions
+    #         original_rel_x1 = (int(x1 * img_width) - px1) / (px2 - px1)
+    #         original_rel_y1 = (int(y1 * img_height) - py1) / (py2 - py1)
+    #         original_rel_x2 = (int(x2 * img_width) - px1) / (px2 - px1)
+    #         original_rel_y2 = (int(y2 * img_height) - py1) / (py2 - py1)
+    #         
+    #         # Extend boundaries to white regions
+    #         aligned_bbox = self._extend_to_white_boundaries(
+    #             white_background_mask, 
+    #             [original_rel_x1, original_rel_y1, original_rel_x2, original_rel_y2],
+    #             (px1, py1, px2, py2), 
+    #             (img_width, img_height)
+    #         )
+    #         
+    #         self.logger.info(f"🔍 Gradient analysis alignment: {aligned_bbox}")
+    #         return aligned_bbox
+    #         
+    #     except Exception as e:
+    #         self.logger.warning(f"⚠️ Gradient analysis failed: {str(e)}")
+    #         return bbox
     
-    def _align_with_multiscale_embeddings(self, image_path: str, bbox: List[float], 
-                                        other_bboxes: List[List[float]]) -> List[float]:
-        """
-        Strategy 2: Use multi-scale DinoV2/V3 embeddings for precise boundary detection.
-        """
-        try:
-            # Analyze at multiple scales for better boundary precision
-            scales = [0.8, 1.0, 1.2]  # Different crop scales around the bbox
-            scale_results = []
-            
-            for scale in scales:
-                # Create scaled bbox for analysis
-                center_x = (bbox[0] + bbox[2]) / 2
-                center_y = (bbox[1] + bbox[3]) / 2
-                width = (bbox[2] - bbox[0]) * scale
-                height = (bbox[3] - bbox[1]) * scale
-                
-                scaled_bbox = [
-                    max(0.0, center_x - width/2),
-                    max(0.0, center_y - height/2),
-                    min(1.0, center_x + width/2),
-                    min(1.0, center_y + height/2)
-                ]
-                
-                # Get white probability map at this scale
-                white_map = self.detect_white_background_with_dino(image_path, scaled_bbox)
-                
-                # Find optimal boundaries within this scale
-                optimal_boundaries = self._find_optimal_boundaries_from_embeddings(
-                    white_map, scaled_bbox, bbox
-                )
-                
-                scale_results.append({
-                    'scale': scale,
-                    'boundaries': optimal_boundaries,
-                    'confidence': np.mean(white_map)
-                })
-            
-            # Select best scale result based on confidence
-            best_result = max(scale_results, key=lambda x: x['confidence'])
-            aligned_bbox = best_result['boundaries']
-            
-            self.logger.info(f"🔬 Multi-scale embedding alignment: {aligned_bbox}")
-            self.logger.info(f"   Best scale: {best_result['scale']}, confidence: {best_result['confidence']:.3f}")
-            
-            return aligned_bbox
-            
-        except Exception as e:
-            self.logger.warning(f"⚠️ Multi-scale embedding analysis failed: {str(e)}")
-            return bbox
+    # def _align_with_multiscale_embeddings(self, image_path: str, bbox: List[float], 
+    #                                     other_bboxes: List[List[float]]) -> List[float]:
+    #     """
+    #     Strategy 2: Use multi-scale DinoV2/V3 embeddings for precise boundary detection.
+    #     """
+    #     try:
+    #         # Analyze at multiple scales for better boundary precision
+    #         scales = [0.8, 1.0, 1.2]  # Different crop scales around the bbox
+    #         scale_results = []
+    #         
+    #         for scale in scales:
+    #             # Create scaled bbox for analysis
+    #             center_x = (bbox[0] + bbox[2]) / 2
+    #             center_y = (bbox[1] + bbox[3]) / 2
+    #             width = (bbox[2] - bbox[0]) * scale
+    #             height = (bbox[3] - bbox[1]) * scale
+    #             
+    #             scaled_bbox = [
+    #                 max(0.0, center_x - width/2),
+    #                 max(0.0, center_y - height/2),
+    #                 min(1.0, center_x + width/2),
+    #                 min(1.0, center_y + height/2)
+    #             ]
+    #             
+    #             # Get white probability map at this scale
+    #             white_map = self.detect_white_background_with_dino(image_path, scaled_bbox)
+    #             
+    #             # Find optimal boundaries within this scale
+    #             optimal_boundaries = self._find_optimal_boundaries_from_embeddings(
+    #                 white_map, scaled_bbox, bbox
+    #             )
+    #             
+    #             scale_results.append({
+    #                 'scale': scale,
+    #                 'boundaries': optimal_boundaries,
+    #                 'confidence': np.mean(white_map)
+    #             })
+    #         
+    #         # Select best scale result based on confidence
+    #         best_result = max(scale_results, key=lambda x: x['confidence'])
+    #         aligned_bbox = best_result['boundaries']
+    #         
+    #         self.logger.info(f"🔬 Multi-scale embedding alignment: {aligned_bbox}")
+    #         self.logger.info(f"   Best scale: {best_result['scale']}, confidence: {best_result['confidence']:.3f}")
+    #         
+    #         return aligned_bbox
+    #         
+    #     except Exception as e:
+    #         self.logger.warning(f"⚠️ Multi-scale embedding analysis failed: {str(e)}")
+    #         return bbox
     
-    def _align_with_contour_detection(self, image_path: str, bbox: List[float], 
-                                    other_bboxes: List[List[float]]) -> List[float]:
-        """
-        Strategy 3: Use contour detection to find precise white background boundaries.
-        """
-        try:
-            import cv2
-            
-            # Load image
-            image = Image.open(image_path).convert('RGB')
-            img_array = np.array(image)
-            img_width, img_height = image.size
-            
-            # Convert to HSV for better white detection
-            hsv = cv2.cvtColor(img_array, cv2.COLOR_RGB2HSV)
-            
-            # Create mask for white/light colors
-            # White in HSV: low saturation, high value
-            lower_white = np.array([0, 0, 200])
-            upper_white = np.array([180, 30, 255])
-            white_mask = cv2.inRange(hsv, lower_white, upper_white)
-            
-            # Morphological operations to clean up the mask
-            kernel = np.ones((5, 5), np.uint8)
-            white_mask = cv2.morphologyEx(white_mask, cv2.MORPH_CLOSE, kernel)
-            white_mask = cv2.morphologyEx(white_mask, cv2.MORPH_OPEN, kernel)
-            
-            # Find contours
-            contours, _ = cv2.findContours(white_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            
-            # Filter contours by area and find the one containing our bbox
-            min_area = 1000  # Minimum contour area
-            large_contours = [c for c in contours if cv2.contourArea(c) > min_area]
-            
-            # Find contour that best encompasses the original bbox
-            bbox_center_x = int((bbox[0] + bbox[2]) / 2 * img_width)
-            bbox_center_y = int((bbox[1] + bbox[3]) / 2 * img_height)
-            
-            best_contour = None
-            best_distance = float('inf')
-            
-            for contour in large_contours:
-                # Check if bbox center is inside this contour
-                distance = cv2.pointPolygonTest(contour, (bbox_center_x, bbox_center_y), True)
-                if distance >= 0 and distance < best_distance:  # Inside contour
-                    best_contour = contour
-                    best_distance = distance
-            
-            if best_contour is not None:
-                # Get bounding rectangle of the contour
-                x, y, w, h = cv2.boundingRect(best_contour)
-                
-                # Convert back to normalized coordinates
-                aligned_bbox = [
-                    max(0.0, x / img_width),
-                    max(0.0, y / img_height),
-                    min(1.0, (x + w) / img_width),
-                    min(1.0, (y + h) / img_height)
-                ]
-                
-                # Ensure minimum size and avoid excessive expansion
-                aligned_bbox = self._constrain_bbox_expansion(bbox, aligned_bbox, max_expansion=0.5)
-                
-                self.logger.info(f"🎭 Contour-based alignment: {aligned_bbox}")
-                return aligned_bbox
-            else:
-                self.logger.info(f"🎭 No suitable contour found, using original bbox")
-                return bbox
-                
-        except Exception as e:
-            self.logger.warning(f"⚠️ Contour detection failed: {str(e)}")
-            return bbox
+    # def _align_with_contour_detection(self, image_path: str, bbox: List[float], 
+    #                                 other_bboxes: List[List[float]]) -> List[float]:
+    #     """
+    #     Strategy 3: Use contour detection to find precise white background boundaries.
+    #     """
+    #     try:
+    #         import cv2
+    #         
+    #         # Load image
+    #         image = Image.open(image_path).convert('RGB')
+    #         img_array = np.array(image)
+    #         img_width, img_height = image.size
+    #         
+    #         # Convert to HSV for better white detection
+    #         hsv = cv2.cvtColor(img_array, cv2.COLOR_RGB2HSV)
+    #         
+    #         # Create mask for white/light colors
+    #         # White in HSV: low saturation, high value
+    #         lower_white = np.array([0, 0, 200])
+    #         upper_white = np.array([180, 30, 255])
+    #         white_mask = cv2.inRange(hsv, lower_white, upper_white)
+    #         
+    #         # Morphological operations to clean up the mask
+    #         kernel = np.ones((5, 5), np.uint8)
+    #         white_mask = cv2.morphologyEx(white_mask, cv2.MORPH_CLOSE, kernel)
+    #         white_mask = cv2.morphologyEx(white_mask, cv2.MORPH_OPEN, kernel)
+    #         
+    #         # Find contours
+    #         contours, _ = cv2.findContours(white_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    #         
+    #         # Filter contours by area and find the one containing our bbox
+    #         min_area = 1000  # Minimum contour area
+    #         large_contours = [c for c in contours if cv2.contourArea(c) > min_area]
+    #         
+    #         # Find contour that best encompasses the original bbox
+    #         bbox_center_x = int((bbox[0] + bbox[2]) / 2 * img_width)
+    #         bbox_center_y = int((bbox[1] + bbox[3]) / 2 * img_height)
+    #         
+    #         best_contour = None
+    #         best_distance = float('inf')
+    #         
+    #         for contour in large_contours:
+    #             # Check if bbox center is inside this contour
+    #             distance = cv2.pointPolygonTest(contour, (bbox_center_x, bbox_center_y), True)
+    #             if distance >= 0 and distance < best_distance:  # Inside contour
+    #                 best_contour = contour
+    #                 best_distance = distance
+    #         
+    #         if best_contour is not None:
+    #             # Get bounding rectangle of the contour
+    #             x, y, w, h = cv2.boundingRect(best_contour)
+    #             
+    #             # Convert back to normalized coordinates
+    #             aligned_bbox = [
+    #                 max(0.0, x / img_width),
+    #                 max(0.0, y / img_height),
+    #                 min(1.0, (x + w) / img_width),
+    #                 min(1.0, (y + h) / img_height)
+    #             ]
+    #             
+    #             # Ensure minimum size and avoid excessive expansion
+    #             aligned_bbox = self._constrain_bbox_expansion(bbox, aligned_bbox, max_expansion=0.5)
+    #             
+    #             self.logger.info(f"🎭 Contour-based alignment: {aligned_bbox}")
+    #             return aligned_bbox
+    #         else:
+    #             self.logger.info(f"🎭 No suitable contour found, using original bbox")
+    #             return bbox
+    #             
+    #     except Exception as e:
+    #         self.logger.warning(f"⚠️ Contour detection failed: {str(e)}")
+    #         return bbox
     
-    def _align_with_adaptive_thresholding(self, image_path: str, bbox: List[float], 
-                                        other_bboxes: List[List[float]]) -> List[float]:
-        """
-        Strategy 4: Use adaptive thresholding based on local image statistics.
-        """
-        try:
-            # Get white probability map from embeddings
-            white_map = self.detect_white_background_with_dino(image_path, bbox)
-            
-            # Calculate adaptive threshold based on local statistics
-            mean_prob = np.mean(white_map)
-            std_prob = np.std(white_map)
-            
-            # Adaptive threshold: mean + k * std, where k depends on variance
-            if std_prob > 0.1:
-                k = 0.5  # High variance - be more conservative
-            elif std_prob > 0.05:
-                k = 1.0  # Medium variance - standard approach
-            else:
-                k = 1.5  # Low variance - be more aggressive
-            
-            adaptive_threshold = min(0.9, mean_prob + k * std_prob)
-            
-            # Find regions above adaptive threshold
-            high_confidence_mask = white_map > adaptive_threshold
-            
-            # Extend bbox to encompass high-confidence white regions
-            aligned_bbox = self._extend_bbox_to_mask_boundaries(
-                bbox, high_confidence_mask, expansion_limit=0.3
-            )
-            
-            self.logger.info(f"🎚️ Adaptive threshold alignment: {aligned_bbox}")
-            self.logger.info(f"   Threshold: {adaptive_threshold:.3f}, k-factor: {k}")
-            
-            return aligned_bbox
-            
-        except Exception as e:
-            self.logger.warning(f"⚠️ Adaptive thresholding failed: {str(e)}")
-            return bbox
- 
-    def _compute_consensus_alignment(self, original_bbox: List[float], *strategy_bboxes) -> List[float]:
-        """
-        Strategy 5: Compute consensus alignment by averaging valid strategy results.
-        """
-        try:
-            valid_bboxes = [bbox for bbox in strategy_bboxes if bbox is not None]
-            
-            if not valid_bboxes:
-                return original_bbox
-            
-            # Calculate weighted average with more weight to less extreme changes
-            weights = []
-            for bbox in valid_bboxes:
-                # Calculate change magnitude
-                change_magnitude = sum(abs(bbox[i] - original_bbox[i]) for i in range(4))
-                # Inverse weight - smaller changes get higher weight
-                weight = 1.0 / (1.0 + change_magnitude * 10)  # Scale factor
-                weights.append(weight)
-            
-            # Normalize weights
-            total_weight = sum(weights)
-            if total_weight > 0:
-                weights = [w / total_weight for w in weights]
-            else:
-                weights = [1.0 / len(valid_bboxes)] * len(valid_bboxes)
-            
-            # Compute weighted average
-            consensus_bbox = [0.0, 0.0, 0.0, 0.0]
-            for i in range(4):
-                consensus_bbox[i] = sum(bbox[i] * weight for bbox, weight in zip(valid_bboxes, weights))
-            
-            # Ensure valid bounds
-            consensus_bbox = [
-                max(0.0, min(1.0, consensus_bbox[0])),
-                max(0.0, min(1.0, consensus_bbox[1])),
-                max(0.0, min(1.0, consensus_bbox[2])),
-                max(0.0, min(1.0, consensus_bbox[3]))
-            ]
-            
-            self.logger.info(f"🤝 Consensus alignment: {consensus_bbox}")
-            self.logger.info(f"   Used {len(valid_bboxes)} strategies with weights: {[f'{w:.3f}' for w in weights]}")
-            
-            return consensus_bbox
-            
-        except Exception as e:
-            self.logger.warning(f"⚠️ Consensus computation failed: {str(e)}")
-            return original_bbox
+    # def _align_with_adaptive_thresholding(self, image_path: str, bbox: List[float], 
+    #                                     other_bboxes: List[List[float]]) -> List[float]:
+    #     """
+    #     Strategy 4: Use adaptive thresholding based on local image statistics.
+    #     """
+    #     try:
+    #         # Get white probability map from embeddings
+    #         white_map = self.detect_white_background_with_dino(image_path, bbox)
+    #         
+    #         # Calculate adaptive threshold based on local statistics
+    #         mean_prob = np.mean(white_map)
+    #         std_prob = np.std(white_map)
+    #         
+    #         # Adaptive threshold: mean + k * std, where k depends on variance
+    #         if std_prob > 0.1:
+    #             k = 0.5  # High variance - be more conservative
+    #         elif std_prob > 0.05:
+    #             k = 1.0  # Medium variance - standard approach
+    #         else:
+    #             k = 1.5  # Low variance - be more aggressive
+    #         
+    #         adaptive_threshold = min(0.9, mean_prob + k * std_prob)
+    #         
+    #         # Find regions above adaptive threshold
+    #         high_confidence_mask = white_map > adaptive_threshold
+    #         
+    #         # Extend bbox to encompass high-confidence white regions
+    #         aligned_bbox = self._extend_bbox_to_mask_boundaries(
+    #             bbox, high_confidence_mask, expansion_limit=0.3
+    #         )
+    #         
+    #         self.logger.info(f"🎚️ Adaptive threshold alignment: {aligned_bbox}")
+    #         self.logger.info(f"   Threshold: {adaptive_threshold:.3f}, k-factor: {k}")
+    #         
+    #         return aligned_bbox
+    #         
+    #     except Exception as e:
+    #         self.logger.warning(f"⚠️ Adaptive thresholding failed: {str(e)}")
+    #         return bbox
+    # 
+    # def _compute_consensus_alignment(self, original_bbox: List[float], *strategy_bboxes) -> List[float]:
+    #     """
+    #     Strategy 5: Compute consensus alignment by averaging valid strategy results.
+    #     """
+    #     try:
+    #         valid_bboxes = [bbox for bbox in strategy_bboxes if bbox is not None]
+    #         
+    #         if not valid_bboxes:
+    #             return original_bbox
+    #         
+    #         # Calculate weighted average with more weight to less extreme changes
+    #         weights = []
+    #         for bbox in valid_bboxes:
+    #             # Calculate change magnitude
+    #             change_magnitude = sum(abs(bbox[i] - original_bbox[i]) for i in range(4))
+    #             # Inverse weight - smaller changes get higher weight
+    #             weight = 1.0 / (1.0 + change_magnitude * 10)  # Scale factor
+    #             weights.append(weight)
+    #         
+    #         # Normalize weights
+    #         total_weight = sum(weights)
+    #         if total_weight > 0:
+    #             weights = [w / total_weight for w in weights]
+    #         else:
+    #             weights = [1.0 / len(valid_bboxes)] * len(valid_bboxes)
+    #         
+    #         # Compute weighted average
+    #         consensus_bbox = [0.0, 0.0, 0.0, 0.0]
+    #         for i in range(4):
+    #             consensus_bbox[i] = sum(bbox[i] * weight for bbox, weight in zip(valid_bboxes, weights))
+    #         
+    #         # Ensure valid bounds
+    #         consensus_bbox = [
+    #             max(0.0, min(1.0, consensus_bbox[0])),
+    #             max(0.0, min(1.0, consensus_bbox[1])),
+    #             max(0.0, min(1.0, consensus_bbox[2])),
+    #             max(0.0, min(1.0, consensus_bbox[3]))
+    #         ]
+    #         
+    #         self.logger.info(f"🤝 Consensus alignment: {consensus_bbox}")
+    #         self.logger.info(f"   Used {len(valid_bboxes)} strategies with weights: {[f'{w:.3f}' for w in weights]}")
+    #         
+    #         return consensus_bbox
+    #         
+    #     except Exception as e:
+    #         self.logger.warning(f"⚠️ Consensus computation failed: {str(e)}")
+    #         return original_bbox
     
     def _extend_to_white_boundaries(self, white_mask: np.ndarray, relative_bbox: List[float], 
                                    analysis_coords: Tuple[int, int, int, int], 
@@ -1531,136 +1430,136 @@ Grid: {grid_size}×{grid_size}"""
             self.logger.warning(f"⚠️ Error extending bbox to mask boundaries: {str(e)}")
             return bbox
     
-    # DINO-BASED VALIDATION METHODS (uncommented for dino alignment method)
-    def _validate_alignment_strategies(self, image_path: str, original_bbox: List[float], 
-                                     strategy_results: Dict[str, List[float]]) -> Dict[str, Dict[str, float]]:
-        """Validate each alignment strategy with multiple metrics."""
-        try:
-            validation_results = {}
-            
-            for strategy_name, aligned_bbox in strategy_results.items():
-                if aligned_bbox is None:
-                    validation_results[strategy_name] = {
-                        'white_coverage': 0.0,
-                        'boundary_sharpness': 0.0,
-                        'size_stability': 0.0,
-                        'embedding_confidence': 0.0,
-                        'overall_score': 0.0
-                    }
-                    continue
+    # COMMENTED OUT - OLD VALIDATION METHODS (no longer needed with single OpenCV strategy)
+    # def _validate_alignment_strategies(self, image_path: str, original_bbox: List[float], 
+    #                                  strategy_results: Dict[str, List[float]]) -> Dict[str, Dict[str, float]]:
+    #     """Validate each alignment strategy with multiple metrics."""
+    #     try:
+    #         validation_results = {}
+    #         
+    #         for strategy_name, aligned_bbox in strategy_results.items():
+    #             if aligned_bbox is None:
+    #                 validation_results[strategy_name] = {
+    #                     'white_coverage': 0.0,
+    #                     'boundary_sharpness': 0.0,
+    #                     'size_stability': 0.0,
+    #                     'embedding_confidence': 0.0,
+    #                     'overall_score': 0.0
+    #                 }
+    #                 continue
+    #             
+    #             # Metric 1: White coverage - how much of the bbox is white background
+    #             white_map = self.detect_white_background_with_dino(image_path, aligned_bbox)
+    #             white_coverage = np.mean(white_map)
+    #             
+    #             # Metric 2: Boundary sharpness - how well-defined are the boundaries
+    #             boundary_sharpness = self._calculate_boundary_sharpness(image_path, aligned_bbox)
+    #             
+    #             # Metric 3: Size stability - penalize excessive size changes
+    #             original_area = (original_bbox[2] - original_bbox[0]) * (original_bbox[3] - original_bbox[1])
+    #             aligned_area = (aligned_bbox[2] - aligned_bbox[0]) * (aligned_bbox[3] - aligned_bbox[1])
+    #             size_ratio = aligned_area / original_area if original_area > 0 else 1.0
+    #             size_stability = 1.0 / (1.0 + abs(size_ratio - 1.0))
                 
-                # Metric 1: White coverage - how much of the bbox is white background
-                white_map = self.detect_white_background_with_dino(image_path, aligned_bbox)
-                white_coverage = np.mean(white_map)
-                
-                # Metric 2: Boundary sharpness - how well-defined are the boundaries
-                boundary_sharpness = self._calculate_boundary_sharpness(image_path, aligned_bbox)
-                
-                # Metric 3: Size stability - penalize excessive size changes
-                original_area = (original_bbox[2] - original_bbox[0]) * (original_bbox[3] - original_bbox[1])
-                aligned_area = (aligned_bbox[2] - aligned_bbox[0]) * (aligned_bbox[3] - aligned_bbox[1])
-                size_ratio = aligned_area / original_area if original_area > 0 else 1.0
-                size_stability = 1.0 / (1.0 + abs(size_ratio - 1.0))
-                
-                # Metric 4: Embedding confidence - consistency with DinoV2/V3 analysis
-                embedding_confidence = min(1.0, white_coverage * 1.5)  # Scale white coverage
-                
-                # Overall score (weighted combination)
-                overall_score = (
-                    white_coverage * 0.4 +
-                    boundary_sharpness * 0.2 + 
-                    size_stability * 0.2 +
-                    embedding_confidence * 0.2
-                )
-                
-                validation_results[strategy_name] = {
-                    'white_coverage': white_coverage,
-                    'boundary_sharpness': boundary_sharpness,
-                    'size_stability': size_stability,
-                    'embedding_confidence': embedding_confidence,
-                    'overall_score': overall_score
-                }
-                
-                self.logger.info(f"📊 {strategy_name} validation:")
-                self.logger.info(f"   White coverage: {white_coverage:.3f}")
-                self.logger.info(f"   Boundary sharpness: {boundary_sharpness:.3f}")
-                self.logger.info(f"   Size stability: {size_stability:.3f}")
-                self.logger.info(f"   Overall score: {overall_score:.3f}")
-            
-            return validation_results
-            
-        except Exception as e:
-            self.logger.warning(f"⚠️ Error validating alignment strategies: {str(e)}")
-            return {}
- 
-    def _calculate_boundary_sharpness(self, image_path: str, bbox: List[float]) -> float:
-        """Calculate how sharp/well-defined the boundaries are."""
-        try:
-            import cv2
-            from scipy import ndimage
-            
-            # Load image
-            image = Image.open(image_path).convert('RGB')
-            img_array = np.array(image)
-            img_width, img_height = image.size
-            
-            # Extract bbox region with small border
-            border = 10
-            x1 = max(0, int(bbox[0] * img_width) - border)
-            y1 = max(0, int(bbox[1] * img_height) - border)
-            x2 = min(img_width, int(bbox[2] * img_width) + border)
-            y2 = min(img_height, int(bbox[3] * img_height) + border)
-            
-            region = img_array[y1:y2, x1:x2]
-            gray_region = cv2.cvtColor(region, cv2.COLOR_RGB2GRAY)
-            
-            # Calculate gradient magnitude at boundaries
-            grad_x = ndimage.sobel(gray_region, axis=1)
-            grad_y = ndimage.sobel(gray_region, axis=0)
-            gradient_magnitude = np.sqrt(grad_x**2 + grad_y**2)
-            
-            # Focus on boundary regions (edges of the extracted region)
-            boundary_width = 5
-            h, w = gradient_magnitude.shape
-            
-            boundaries = np.concatenate([
-                gradient_magnitude[:boundary_width, :].flatten(),  # Top
-                gradient_magnitude[-boundary_width:, :].flatten(),  # Bottom
-                gradient_magnitude[:, :boundary_width].flatten(),  # Left
-                gradient_magnitude[:, -boundary_width:].flatten()   # Right
-            ])
-            
-            # Higher gradient = sharper boundary
-            sharpness = np.mean(boundaries) / 255.0  # Normalize
-            return min(1.0, sharpness)
-            
-        except Exception as e:
-            self.logger.warning(f"⚠️ Error calculating boundary sharpness: {str(e)}")
-            return 0.5  # Default medium sharpness
-
-    def _select_best_alignment(self, validation_results: Dict[str, Dict[str, float]]) -> Tuple[str, str]:
-        """Select the best alignment strategy based on validation metrics."""
-        try:
-            if not validation_results:
-                return 'fallback', 'fallback'
-            
-            # Find strategy with highest overall score
-            best_strategy = max(validation_results.keys(), 
-                              key=lambda k: validation_results[k]['overall_score'])
-            
-            best_score = validation_results[best_strategy]['overall_score']
-            
-            # If best score is too low, fall back to original
-            if best_score < 0.3:
-                self.logger.warning(f"⚠️ All strategies scored low (best: {best_score:.3f}), using fallback")
-                return 'fallback', 'fallback'
-            
-            self.logger.info(f"🏆 Selected {best_strategy} with score: {best_score:.3f}")
-            return best_strategy, best_strategy
-            
-        except Exception as e:
-            self.logger.warning(f"⚠️ Error selecting best alignment: {str(e)}")
-            return 'fallback', 'fallback'
+    #             # Metric 4: Embedding confidence - consistency with DinoV2/V3 analysis
+    #             embedding_confidence = min(1.0, white_coverage * 1.5)  # Scale white coverage
+    #             
+    #             # Overall score (weighted combination)
+    #             overall_score = (
+    #                 white_coverage * 0.4 +
+    #                 boundary_sharpness * 0.2 + 
+    #                 size_stability * 0.2 +
+    #                 embedding_confidence * 0.2
+    #             )
+    #             
+    #             validation_results[strategy_name] = {
+    #                 'white_coverage': white_coverage,
+    #                 'boundary_sharpness': boundary_sharpness,
+    #                 'size_stability': size_stability,
+    #                 'embedding_confidence': embedding_confidence,
+    #                 'overall_score': overall_score
+    #             }
+    #             
+    #             self.logger.info(f"📊 {strategy_name} validation:")
+    #             self.logger.info(f"   White coverage: {white_coverage:.3f}")
+    #             self.logger.info(f"   Boundary sharpness: {boundary_sharpness:.3f}")
+    #             self.logger.info(f"   Size stability: {size_stability:.3f}")
+    #             self.logger.info(f"   Overall score: {overall_score:.3f}")
+    #         
+    #         return validation_results
+    #         
+    #     except Exception as e:
+    #         self.logger.warning(f"⚠️ Error validating alignment strategies: {str(e)}")
+    #         return {}
+    # 
+    # def _calculate_boundary_sharpness(self, image_path: str, bbox: List[float]) -> float:
+    #     """Calculate how sharp/well-defined the boundaries are."""
+    #     try:
+    #         import cv2
+    #         from scipy import ndimage
+    #         
+    #         # Load image
+    #         image = Image.open(image_path).convert('RGB')
+    #         img_array = np.array(image)
+    #         img_width, img_height = image.size
+    #         
+    #         # Extract bbox region with small border
+    #         border = 10
+    #         x1 = max(0, int(bbox[0] * img_width) - border)
+    #         y1 = max(0, int(bbox[1] * img_height) - border)
+    #         x2 = min(img_width, int(bbox[2] * img_width) + border)
+    #         y2 = min(img_height, int(bbox[3] * img_height) + border)
+    #         
+    #         region = img_array[y1:y2, x1:x2]
+    #         gray_region = cv2.cvtColor(region, cv2.COLOR_RGB2GRAY)
+    #         
+    #         # Calculate gradient magnitude at boundaries
+    #         grad_x = ndimage.sobel(gray_region, axis=1)
+    #         grad_y = ndimage.sobel(gray_region, axis=0)
+    #         gradient_magnitude = np.sqrt(grad_x**2 + grad_y**2)
+    #         
+    #         # Focus on boundary regions (edges of the extracted region)
+    #         boundary_width = 5
+    #         h, w = gradient_magnitude.shape
+    #         
+    #         boundaries = np.concatenate([
+    #             gradient_magnitude[:boundary_width, :].flatten(),  # Top
+    #             gradient_magnitude[-boundary_width:, :].flatten(),  # Bottom
+    #             gradient_magnitude[:, :boundary_width].flatten(),  # Left
+    #             gradient_magnitude[:, -boundary_width:].flatten()   # Right
+    #         ])
+    #         
+    #         # Higher gradient = sharper boundary
+    #         sharpness = np.mean(boundaries) / 255.0  # Normalize
+    #         return min(1.0, sharpness)
+    #         
+    #     except Exception as e:
+    #         self.logger.warning(f"⚠️ Error calculating boundary sharpness: {str(e)}")
+    #         return 0.5  # Default medium sharpness
+    
+    # def _select_best_alignment(self, validation_results: Dict[str, Dict[str, float]]) -> Tuple[str, List[float]]:
+    #     """Select the best alignment strategy based on validation metrics."""
+    #     try:
+    #         if not validation_results:
+    #             return 'fallback', None
+    #         
+    #         # Find strategy with highest overall score
+    #         best_strategy = max(validation_results.keys(), 
+    #                           key=lambda k: validation_results[k]['overall_score'])
+    #         
+    #         best_score = validation_results[best_strategy]['overall_score']
+    #         
+    #         # If best score is too low, fall back to original
+    #         if best_score < 0.3:
+    #             self.logger.warning(f"⚠️ All strategies scored low (best: {best_score:.3f}), using fallback")
+    #             return 'fallback', None
+    #         
+    #         self.logger.info(f"🏆 Selected {best_strategy} with score: {best_score:.3f}")
+    #         return best_strategy, best_strategy  # Return strategy name twice for now - will be fixed in alignment method
+    #         
+    #     except Exception as e:
+    #         self.logger.warning(f"⚠️ Error selecting best alignment: {str(e)}")
+    #         return 'fallback', None
     
     def extend_bbox_with_white_detection(self, image_path: str, original_bbox: List[float], 
                                        white_threshold: float = 0.6, 
@@ -2007,8 +1906,7 @@ Grid: {grid_size}×{grid_size}"""
             self.logger.error(f"❌ Error in fallback extension: {str(e)}")
             return original_bbox
     
-    def process_page(self, image_path: str, output_dir: str, extension_threshold: float = 0.8, 
-                     alignment_method: str = 'opencv') -> Dict[str, Any]:
+    def process_page(self, image_path: str, output_dir: str, extension_threshold: float = 0.8) -> Dict[str, Any]:
         """
         Process a single page: detect sections with Gemini, extend with DinoV3.
         
@@ -2016,7 +1914,6 @@ Grid: {grid_size}×{grid_size}"""
             image_path: Path to page image
             output_dir: Directory to save results
             extension_threshold: Threshold for white background detection
-            alignment_method: 'dino' for DinoV2/V3 embeddings or 'opencv' for pixel-based approach
             
         Returns:
             Dictionary with processing results
@@ -2050,9 +1947,9 @@ Grid: {grid_size}×{grid_size}"""
             for i, bbox in enumerate(gemini_bboxes):
                 self.logger.info(f"🔧 Aligning bbox {i+1}/{len(gemini_bboxes)} with advanced strategies")
                 
-                # Use alignment method specified by user
+                # Use advanced alignment with multiple validation strategies
                 alignment_result = self.align_bbox_with_white_background(
-                    image_path, bbox, gemini_bboxes, alignment_method
+                    image_path, bbox, gemini_bboxes
                 )
                 
                 # If advanced alignment fails, fall back to traditional method
@@ -2438,20 +2335,17 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Basic usage (OpenCV approach)
+  # Basic usage
   python bbox_aligner_dinov3.py document.pdf
-  
-  # Use DinoV2/V3 embeddings approach
-  python bbox_aligner_dinov3.py document.pdf --alignment-method dino
   
   # With custom API key
   python bbox_aligner_dinov3.py document.pdf --api-key your_gemini_key
   
-  # Custom output directory with Dino alignment
-  python bbox_aligner_dinov3.py document.pdf --output-dir results --alignment-method dino
+  # Custom output directory
+  python bbox_aligner_dinov3.py document.pdf --output-dir results
   
-  # Process specific pages with specific alignment method
-  python bbox_aligner_dinov3.py document.pdf --start-page 1 --end-page 3 --alignment-method opencv
+  # Process specific pages
+  python bbox_aligner_dinov3.py document.pdf --start-page 1 --end-page 3
         """
     )
     
@@ -2512,13 +2406,6 @@ Examples:
         help='Skip PDF extraction if page images already exist'
     )
     
-    parser.add_argument(
-        '--alignment-method',
-        choices=['dino', 'opencv'],
-        default='opencv',
-        help='Choose alignment method: "dino" for DinoV2/V3 embeddings or "opencv" for pixel-based approach (default: opencv)'
-    )
-    
     args = parser.parse_args()
     
     # Print header
@@ -2529,7 +2416,6 @@ Examples:
     print(f"📁 Output dir: {args.output_dir}")
     print(f"🎯 DPI: {args.dpi}")
     print(f"🔍 Extension threshold: {args.extension_threshold}")
-    print(f"🧠 Alignment method: {args.alignment_method}")
     print("=" * 60)
     
     try:
@@ -2584,8 +2470,7 @@ Examples:
             result = aligner.process_page(
                 image_path, 
                 args.output_dir,
-                args.extension_threshold,
-                args.alignment_method
+                args.extension_threshold
             )
             
             all_results.append(result)
