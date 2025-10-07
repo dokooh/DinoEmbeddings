@@ -369,14 +369,20 @@ Examples:
   # Use larger model and save visualization
   python script.py document.pdf --model facebook/dinov2-large --visualize
   
+  # Save individual region images as PNG files
+  python script.py document.pdf --save-regions --regions-output-dir my_regions
+  
+  # Save regions with bounding boxes drawn
+  python script.py document.pdf --save-regions --regions-with-bbox
+  
   # Process multiple pages with specific range
   python script.py document.pdf --pages 1-5 --no-save
   
   # Compare similarity between regions
   python script.py document.pdf --compare-regions
   
-  # Export to JSON format
-  python script.py document.pdf --format json
+  # Export to JSON format and save region images
+  python script.py document.pdf --format json --save-regions
         """
     )
     
@@ -461,6 +467,25 @@ Examples:
         '--verbose',
         action='store_true',
         help='Print detailed processing information'
+    )
+    
+    parser.add_argument(
+        '--save-regions',
+        action='store_true',
+        help='Save individual region images as PNG files'
+    )
+    
+    parser.add_argument(
+        '--regions-output-dir',
+        type=str,
+        default='extracted_regions',
+        help='Directory to save region images (default: extracted_regions)'
+    )
+    
+    parser.add_argument(
+        '--regions-with-bbox',
+        action='store_true',
+        help='Save region images with bounding boxes drawn (in addition to cropped regions)'
     )
     
     return parser.parse_args()
@@ -624,6 +649,20 @@ def main():
         regions = embedder.detect_regions(images[0])
         embedder.visualize_regions(images[0], regions, args.viz_output)
     
+    # Save individual region images
+    if args.save_regions:
+        print("\nSaving individual region images...")
+        for page_idx, image in enumerate(images):
+            actual_page_num = page_indices[page_idx] + 1
+            regions = embedder.detect_regions(image)
+            embedder.save_region_images(
+                image, 
+                regions, 
+                args.regions_output_dir, 
+                actual_page_num, 
+                save_with_bbox=args.regions_with_bbox
+            )
+    
     # Compare regions
     if args.compare_regions:
         print("\n" + "="*60)
@@ -660,6 +699,10 @@ def main():
         print(f"Total regions extracted: {total_regions}")
     if not args.no_save:
         print(f"Embeddings saved to: {args.output}")
+    if args.save_regions:
+        print(f"Region images saved to: {args.regions_output_dir}/")
+        if args.regions_with_bbox:
+            print("  - Includes versions with bounding boxes drawn")
     print("="*60)
     print("\n✓ Processing complete!")
 
